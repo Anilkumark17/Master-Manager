@@ -8,6 +8,7 @@ import {
   FileText,
   LayoutGrid,
   Palette,
+  Waypoints,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -18,6 +19,12 @@ const tabs = (projectId) => [
     label: "Project Details",
     icon: LayoutGrid,
     match: (path, base) => path === base || path === `${base}/`,
+  },
+  {
+    href: `/dashboard/projects/${projectId}/discovery`,
+    label: "Product journey",
+    icon: Waypoints,
+    match: (path, base) => path.startsWith(`${base}/discovery`),
   },
   {
     href: `/dashboard/projects/${projectId}/prd`,

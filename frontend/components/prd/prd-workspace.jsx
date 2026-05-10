@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   buildPlainDocumentFromPrdForm,
   safeFilename,
@@ -55,6 +56,7 @@ export function PrdWorkspace({ projectId, project }) {
   const [error, setError] = React.useState("");
   const [exportHint, setExportHint] = React.useState("");
   const [strategicLoading, setStrategicLoading] = React.useState(false);
+  const [useDiscoveryContext, setUseDiscoveryContext] = React.useState(true);
 
   const refreshList = React.useCallback(async () => {
     setLoadingList(true);
@@ -137,6 +139,7 @@ export function PrdWorkspace({ projectId, project }) {
             skipPaths: ["strategicRollout.analysis"],
           }),
           stageBrief: brief,
+          useDiscoveryWorkspace: useDiscoveryContext,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -249,6 +252,26 @@ export function PrdWorkspace({ projectId, project }) {
       </AiCallout>
 
       <WorkspacePanel className="space-y-3">
+        <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+          <Checkbox
+            id="use-discovery"
+            checked={useDiscoveryContext}
+            onCheckedChange={(v) => setUseDiscoveryContext(v === true)}
+          />
+          <div className="min-w-0 flex-1">
+            <Label
+              htmlFor="use-discovery"
+              className="cursor-pointer text-sm font-medium leading-snug"
+            >
+              Use product journey + PRD planning context
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              When enabled, the server sends your saved discovery workspace and
+              PRD planning packet to the model (if any exist). Turn off to rely
+              only on the project record and brief.
+            </p>
+          </div>
+        </div>
         <div>
           <Label htmlFor="next-stage-brief" className="text-sm font-medium">
             Brief for the next stage

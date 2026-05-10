@@ -24,7 +24,7 @@ PLAIN TEXT ONLY (inside each JSON string — what users see in form fields):
 - Write in normal sentences and short paragraphs. No HTML.
 - Escape double quotes inside strings so the overall JSON stays valid; use \\n for newlines inside strings.`;
 
-function buildStrategyBlockForFormFill(project, stageBrief) {
+function buildStrategyBlockForFormFill(project, stageBrief, discoveryBundle) {
   const lines = [];
   lines.push(
     `Product: ${project.name} (${project.type}). Industry/domain: ${project.industryDomain || "n/a"}.`
@@ -34,6 +34,12 @@ function buildStrategyBlockForFormFill(project, stageBrief) {
   }
   if (typeof stageBrief === "string" && stageBrief.trim()) {
     lines.push(`NEXT STAGE / PRIORITIZATION BRIEF:\n${stageBrief.trim()}`);
+  }
+  if (discoveryBundle && typeof discoveryBundle === "object") {
+    lines.push(
+      "PRODUCT_DISCOVERY_PIPELINE (validated signals — treat as authoritative for scope and priorities when filling the PRD; do not re-open decisions already validated unless the form field explicitly asks for alternatives):\n" +
+        JSON.stringify(discoveryBundle, null, 2).slice(0, 28000)
+    );
   }
   lines.push(
     "Apply execution-first judgment inside each form field: reduce ambiguity, surface risks, dependencies, edge cases, and missing capabilities where the field allows."
@@ -45,9 +51,14 @@ function buildStrategyBlockForFormFill(project, stageBrief) {
  * Full system prompt for POST .../prds/generate (JSON form snapshot).
  * @param {object} project Drizzle project row
  * @param {string} [stageBrief]
+ * @param {object|null} [discoveryBundle] product journey workspace snapshot
  */
-function getFormFillSystemPrompt(project, stageBrief) {
-  const strategyBlock = buildStrategyBlockForFormFill(project, stageBrief);
+function getFormFillSystemPrompt(project, stageBrief, discoveryBundle) {
+  const strategyBlock = buildStrategyBlockForFormFill(
+    project,
+    stageBrief,
+    discoveryBundle
+  );
   return `${getSystemPrompt(strategyBlock)}
 
 ---
@@ -64,7 +75,8 @@ function buildUserMessageFormFill(
   project,
   formSnapshot,
   fieldDescriptors,
-  stageBrief
+  stageBrief,
+  discoveryBundle
 ) {
   const descriptors = Array.isArray(fieldDescriptors) ? fieldDescriptors : [];
 
@@ -86,6 +98,11 @@ function buildUserMessageFormFill(
   const formBlock = JSON.stringify(formSnapshot || {}, null, 2);
   const fieldsBlock = JSON.stringify(descriptors, null, 2);
 
+  const discoveryBlock =
+    discoveryBundle && typeof discoveryBundle === "object"
+      ? `PRODUCT_DISCOVERY_AND_PRD_PLANNING_JSON (brainstorm → prioritization → validation → PRD planning — align template with this evidence):\n${JSON.stringify(discoveryBundle, null, 2).slice(0, 32000)}\n\n---\n\n`
+      : "";
+
   return `ALLOWED_FIELDS (each item has "path" using dot notation → build nested JSON; "label" and "sectionTitle" are hints):
 ${fieldsBlock}
 
@@ -96,7 +113,7 @@ ${projectBlock}
 
 ---
 
-CURRENT_FORM_SNAPSHOT_JSON (may be partial):
+${discoveryBlock}CURRENT_FORM_SNAPSHOT_JSON (may be partial):
 ${formBlock}
 
 ---

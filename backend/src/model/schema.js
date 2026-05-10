@@ -56,6 +56,34 @@ const prdDocuments = pgTable("prd_documents", {
     .notNull(),
 });
 
+/**
+ * Product discovery → prioritization → validation → PRD planning pipeline (one row per project).
+ */
+const productDiscoveryWorkspaces = pgTable(
+  "product_discovery_workspaces",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .unique()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    brainstorm: jsonb("brainstorm").notNull().$defaultFn(() => ({})),
+    prioritization: jsonb("prioritization").notNull().$defaultFn(() => ({})),
+    validationPlan: jsonb("validation_plan").notNull().$defaultFn(() => ({})),
+    validationResults: jsonb("validation_results").notNull().$defaultFn(() => ({})),
+    prdPlanning: jsonb("prd_planning").notNull().$defaultFn(() => ({})),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }
+);
+
 /** React Flow–compatible maps generated from the latest PRD (IA / journeys / handoff). */
 const designerDeliverables = pgTable("designer_deliverables", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -77,4 +105,10 @@ const designerDeliverables = pgTable("designer_deliverables", {
     .notNull(),
 });
 
-module.exports = { users, projects, prdDocuments, designerDeliverables };
+module.exports = {
+  users,
+  projects,
+  prdDocuments,
+  productDiscoveryWorkspaces,
+  designerDeliverables,
+};

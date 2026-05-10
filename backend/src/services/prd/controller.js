@@ -11,6 +11,7 @@ const {
   STRATEGIC_ROLLOUT_SYSTEM,
   buildStrategicRolloutUserMessage,
 } = require("./strategicRolloutPrompt");
+const { loadDiscoveryBundleForProject } = require("../discovery/controller");
 
 /** Coerce model output so every leaf is a string for Drizzle / UI. */
 function normalizeFormLeaves(obj) {
@@ -210,17 +211,30 @@ async function generate(req, res) {
         ? req.body.stageBrief.trim().slice(0, 12000)
         : "";
 
+    let discoveryBundle = null;
+    if (req.body.useDiscoveryWorkspace === true) {
+      discoveryBundle = await loadDiscoveryBundleForProject(
+        req.params.projectId,
+        req.user.id
+      );
+    }
+
     const userMessage = buildUserMessageFormFill(
       req.project,
       formSnapshot,
       fieldDescriptors,
-      stageBrief
+      stageBrief,
+      discoveryBundle
     );
     const { text, model } = await chat(
       [
         {
           role: "system",
-          content: getFormFillSystemPrompt(req.project, stageBrief),
+          content: getFormFillSystemPrompt(
+            req.project,
+            stageBrief,
+            discoveryBundle
+          ),
         },
         { role: "user", content: userMessage },
       ],
