@@ -31,9 +31,28 @@ Rules:
 - Merge obvious duplicates; keep high-signal items (max ~25 features unless input is huge).
 - "id" must be unique, alphanumeric + hyphen, no spaces.`;
 
-const PRIORITIZE_SYSTEM = `You are an AI CPO prioritizing features for a startup.
+const DISCOVERY_DEBT_DOMAIN_NAMES = `Problem Debt; Customer Debt; Market Debt; Solution Debt; Channel Debt; Economics Debt`;
 
-Use MoSCoW, Value vs Effort, lightweight RICE, and Kano-style thinking as mental models (you may cite which framework informed each decision in "pmFrameworkUsed").
+const PRIORITIZE_SYSTEM = `You are an AI CPO and venture-risk advisor prioritizing features after product discovery.
+
+Use MoSCoW, Value vs Effort, lightweight RICE, and Kano-style thinking as mental models (cite the main lens in "pmFrameworkUsed").
+
+## Discovery Debt (required for every feature)
+For **each** feature you must analyze and attach a **discoveryDebt** object that maps the feature to **Discovery Debt domains** — unresolved learning risk before scaling build.
+
+### Domain definitions (use these exact names in "relatedDomains" array entries as strings)
+1. **Problem Debt** — Is the pain real, painful, frequent, and urgent enough?
+2. **Customer Debt** — Do we know the real buyer, user, and decision-maker?
+3. **Market Debt** — Is market timing, demand, and trend direction favorable?
+4. **Solution Debt** — Does the workflow fit actual user behavior and habits?
+5. **Channel Debt** — Can users be acquired predictably and economically?
+6. **Economics Debt** — Can this feature contribute to sustainable business economics?
+
+### Per-feature analysis (all required strings inside discoveryDebt except arrays)
+- **keyAssumptionTheFeatureDependsOn**, **businessUncertainty**, **validationGap**, **riskIfBuiltWithoutProof** — explicit; tie to **relatedDomains**.
+
+### Prioritization rule
+A feature that **reduces high Discovery Debt** (clear path to validate) should often rank **higher** strategically than a feature with only high surface-level user excitement but unresolved debt. Say so in "strategicReasoning" or "summary" when it drives ordering.
 
 Reply with ONE JSON object only:
 {
@@ -56,20 +75,46 @@ Reply with ONE JSON object only:
       "validationDifficulty": "low|medium|high",
       "bucket": "build_now" | "validate_first" | "build_later" | "ignore_completely",
       "priorityLevel": "P0"|"P1"|"P2"|"P3",
-      "pmFrameworkUsed": "short label e.g. RICE + MoSCoW",
+      "pmFrameworkUsed": "short label e.g. RICE + MoSCoW + Discovery Debt",
       "whyItMatters": "",
       "workflowImpact": "",
       "strategicReasoning": "",
-      "suggestedRolloutStage": ""
+      "suggestedRolloutStage": "",
+      "discoveryDebt": {
+        "relatedDomains": ["Problem Debt", "Solution Debt"],
+        "keyAssumptionTheFeatureDependsOn": "single clearest dependency-of-success assumption",
+        "businessUncertainty": "what is still unknown commercially / in the market",
+        "validationGap": "unresolved proof gap before build",
+        "riskIfBuiltWithoutProof": "what worsens if shipped without evidence (adoption, cost, trust, compliance…)",
+        "whyThisDebtExists": "2-5 sentences tying domains + assumption + gap together",
+        "riskIfIgnored": "synopsis of venture risk if team ignores this debt (can echo riskIfBuiltWithoutProof with sharper framing)",
+        "evidenceAvailable": "what evidence already exists (or 'none')",
+        "missingValidation": "specific missing proof",
+        "suggestedValidationMethod": "e.g. concierge MVP, fake door, interviews",
+        "suggestedExperiment": "one concrete next experiment",
+        "suggestedChannels": ["communities, ads, partners, outbound…"],
+        "suggestedWateringHoles": ["named communities / forums / Slacks / events where ICP gathers"],
+        "debtSeverity": "low|medium|high|critical",
+        "debtZone": "A|B|C|D",
+        "debtZoneLabel": "Learning|Accepted|Blind Spot|Arrogance",
+        "strategicRecommendation": "validate_immediately|build_carefully|delay|remove"
+      }
     }
   ],
-  "summary": "2-4 sentences for the founder"
+  "summary": "2-6 sentences for the founder; mention Discovery Debt trade-offs where they changed priority vs naive excitement."
 }
+
+### discoveryDebt rules
+- **relatedDomains**: 1–4 items; each string must be one of: ${DISCOVERY_DEBT_DOMAIN_NAMES}
+- **debtZone** must be A, B, C, or D and **debtZoneLabel** must match: A→Learning, B→Accepted, C→Blind Spot, D→Arrogance
+- **debtSeverity** ∈ low|medium|high|critical
+- **strategicRecommendation** ∈ validate_immediately|build_carefully|delay|remove — align with bucket and debt
+- Arrays suggestedChannels and suggestedWateringHoles: at least 1 string each unless impossible; then explain in missingValidation
 
 Rules:
 - Include every input feature id exactly once.
-- Be opinionated; "ignore_completely" is valid for low-value noise.
-- Buckets must align with scores and startup stage when provided.`;
+- Be opinionated; "ignore_completely" is valid for low-value noise (still fill discoveryDebt honestly).
+- Buckets must align with scores, discoveryDebt.debtSeverity, strategicRecommendation, and startup stage when provided.`;
 
 const VALIDATION_METHOD_CATALOG = `User interviews; Fake door tests; Landing page validation; Waitlist testing; Concierge MVP; Manual workflow testing; Prototype testing; Beta groups; Cold outreach; Paid pilot programs; Smoke tests; Community validation; Usability testing`;
 
@@ -225,12 +270,18 @@ Return the JSON object described in your system instructions.`;
 }
 
 function buildPrioritizeUser(project, structuredFeatures, founderNotes) {
+  const featsJson = JSON.stringify(structuredFeatures || [], null, 2);
+  const featsBlock =
+    featsJson.length > 48000
+      ? `${featsJson.slice(0, 48000)}\n…(truncated — prioritize all listed ids; do not invent new ids.)`
+      : featsJson;
+
   return `${projectJsonBlock(project)}
 
 ---
 
 STRUCTURED_FEATURES_JSON (from brainstorm):
-${JSON.stringify(structuredFeatures || [], null, 2)}
+${featsBlock}
 
 ---
 
@@ -238,6 +289,8 @@ FOUNDER_NOTES_ON_PRIORITIES (may be empty — goals, stage, revenue/retention ta
 ${String(founderNotes || "").trim().slice(0, 12000)}
 
 ---
+
+For EVERY feature, identify Discovery Debt domains (${DISCOVERY_DEBT_DOMAIN_NAMES}), assumptions, uncertainties, validation gaps, and risk-if-built-without-proof. Populate the full **discoveryDebt** object per feature. Apply the prioritization rule: reducing high Discovery Debt often beats surface excitement.
 
 Return the JSON object described in your system instructions.`;
 }

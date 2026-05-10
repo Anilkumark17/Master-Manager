@@ -29,10 +29,11 @@ export default async function PrdGeneratePage({ params }) {
           PRD generation (template)
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          Complete PRD planning in the previous tab first when you can. Here,
-          describe the next stage and run AI to fill the structured template
-          using your project, optional product-journey context, and saved PRD
-          planning. Section 9 still uses the dedicated strategic rollout call.
+          Product journey and PRD planning are merged into the template when
+          you open this tab (and when you use Autofill). The stage brief is
+          pre-filled when empty. Run AI to refine the full template; the server
+          always receives your discovery workspace. Section 9 still uses the
+          dedicated strategic rollout call.
         </p>
       </div>
 

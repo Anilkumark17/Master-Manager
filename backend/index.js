@@ -32,9 +32,10 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`API listening on http://127.0.0.1:${PORT}`);
 });
 
-// Allow long FastRouter calls without the socket timing out mid-request
-server.keepAliveTimeout = 120000;
-server.headersTimeout = 125000;
+// Long AI requests: avoid closing idle-ish sockets while Express waits on FastRouter
+server.keepAliveTimeout = 900000; // 15 min
+server.headersTimeout = 910000;
 if (typeof server.requestTimeout === "number") {
   server.requestTimeout = 0;
 }
+server.timeout = 0;

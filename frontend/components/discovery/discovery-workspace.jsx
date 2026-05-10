@@ -17,6 +17,7 @@ import { WorkspacePanel } from "@/components/projects/workspace-panel";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DiscoveryDebtPanel } from "@/components/discovery/discovery-debt-panel";
 import { ValidationPlanTab } from "@/components/discovery/validation-plan-tab";
 import { ValidationResultsTab } from "@/components/discovery/validation-results-tab";
 import { cn } from "@/lib/utils";
@@ -40,17 +41,78 @@ export function DiscoveryWorkspace({ projectId }) {
   const load = React.useCallback(async () => {
     setLoading(true);
     setError("");
+    const url = `/api/projects/${projectId}/discovery/workspace`;
     try {
-      const res = await fetch(`/api/projects/${projectId}/discovery/workspace`);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error || "Failed to load");
+      const res = await fetch(url);
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (parseErr) {
+        console.error(
+          "[DiscoveryWorkspace] Load: response is not JSON",
+          parseErr?.message ?? parseErr,
+          { status: res.status, statusText: res.statusText, url, bodyPreview: text?.slice(0, 1200) }
+        );
+        setError(
+          `Invalid response (HTTP ${res.status}). Open the browser console for details.`
+        );
+        setWorkspace(null);
+        setRawBrainstorm("");
+        setPrioritizeNotes("");
+        setSelectedIds([]);
         return;
       }
-      setWorkspace(data.workspace);
-      if (data.workspace?.brainstorm?.rawInput) {
-        setRawBrainstorm(data.workspace.brainstorm.rawInput);
+      if (!res.ok) {
+        const msg =
+          (typeof data.error === "string" && data.error) ||
+          (typeof data.message === "string" && data.message) ||
+          (text && text.trim().slice(0, 500)) ||
+          `HTTP ${res.status} ${res.statusText || ""}`.trim();
+        console.error("[DiscoveryWorkspace] Load failed", {
+          status: res.status,
+          statusText: res.statusText,
+          url,
+          message: msg,
+          responseBody: data,
+          rawTextPreview: typeof text === "string" ? text.slice(0, 800) : "",
+        });
+        setError(msg);
+        setWorkspace(null);
+        setRawBrainstorm("");
+        setPrioritizeNotes("");
+        setSelectedIds([]);
+        return;
       }
+      const ws = data.workspace;
+      setWorkspace(ws);
+      if (ws) {
+        const raw =
+          typeof ws.brainstorm?.rawInput === "string"
+            ? ws.brainstorm.rawInput
+            : "";
+        setRawBrainstorm(raw);
+        const founder =
+          typeof ws.prioritization?.founderNotes === "string"
+            ? ws.prioritization.founderNotes
+            : "";
+        setPrioritizeNotes(founder);
+        const sel = ws.prioritization?.selectedForValidationIds;
+        setSelectedIds(
+          Array.isArray(sel) ? sel.map(String).filter(Boolean) : []
+        );
+      }
+    } catch (err) {
+      console.error(
+        "[DiscoveryWorkspace] Load: network or unexpected error",
+        err?.message ?? err,
+        { url, stack: err?.stack }
+      );
+      setError(err?.message || "Network error — see console for details.");
+      setWorkspace(null);
+      setRawBrainstorm("");
+      setPrioritizeNotes("");
+      setSelectedIds([]);
     } finally {
       setLoading(false);
     }
@@ -65,13 +127,6 @@ export function DiscoveryWorkspace({ projectId }) {
   const prioFeatures = Array.isArray(prio?.features) ? prio.features : [];
 
   const [selectedIds, setSelectedIds] = React.useState([]);
-
-  React.useEffect(() => {
-    const fromWs = prio?.selectedForValidationIds;
-    if (Array.isArray(fromWs) && fromWs.length) {
-      setSelectedIds(fromWs.map(String));
-    }
-  }, [prio?.selectedForValidationIds]);
 
   function toggleSelected(id) {
     const s = String(id);
@@ -91,6 +146,14 @@ export function DiscoveryWorkspace({ projectId }) {
       throw new Error(j.error || "Save failed");
     }
     setWorkspace(j.workspace);
+    const sel = j.workspace?.prioritization?.selectedForValidationIds;
+    if (Array.isArray(sel)) {
+      setSelectedIds(sel.map(String).filter(Boolean));
+    }
+    const founder = j.workspace?.prioritization?.founderNotes;
+    if (typeof founder === "string") {
+      setPrioritizeNotes(founder);
+    }
   }
 
   async function runBrainstorm() {
@@ -107,10 +170,14 @@ export function DiscoveryWorkspace({ projectId }) {
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || "Brainstorm failed");
+        setError(data.error || "Organize with AI failed");
         return;
       }
       setWorkspace(data.workspace);
+      const b = data.workspace?.brainstorm;
+      if (b && typeof b.rawInput === "string") {
+        setRawBrainstorm(b.rawInput);
+      }
     } catch (e) {
       setError(e?.message || "Request failed");
     } finally {
@@ -130,15 +197,31 @@ export function DiscoveryWorkspace({ projectId }) {
           body: JSON.stringify({
             founderNotes: prioritizeNotes,
             selectedForValidationIds: selectedIds,
+            ...(Array.isArray(features) && features.length > 0
+              ? { structuredFeatures: features }
+              : {}),
           }),
         }
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || "Prioritize failed");
+        const raw = data.error || "Prioritize with AI failed";
+        const friendly =
+          typeof raw === "string" &&
+          /brainstorm first|structured features|no structured/i.test(raw)
+            ? "No feature list on the server yet. Run Organize with AI on the Brainstorm tab, wait for it to finish, then try Prioritize again (or reload the page)."
+            : raw;
+        setError(friendly);
         return;
       }
       setWorkspace(data.workspace);
+      const p = data.workspace?.prioritization;
+      if (p && typeof p.founderNotes === "string") {
+        setPrioritizeNotes(p.founderNotes);
+      }
+      if (Array.isArray(p?.selectedForValidationIds)) {
+        setSelectedIds(p.selectedForValidationIds.map(String).filter(Boolean));
+      }
     } catch (e) {
       setError(e?.message || "Request failed");
     } finally {
@@ -334,6 +417,7 @@ export function DiscoveryWorkspace({ projectId }) {
                           {f.whyItMatters}
                         </p>
                       ) : null}
+                      <DiscoveryDebtPanel debt={f.discoveryDebt} />
                     </div>
                   </li>
                 );

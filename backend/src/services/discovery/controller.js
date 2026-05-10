@@ -66,8 +66,11 @@ async function getWorkspace(req, res) {
     const row = await ensureWorkspace(req.params.projectId, req.user.id);
     return res.json({ workspace: workspaceDto(row) });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to load discovery workspace" });
+    const detail = err?.message || String(err);
+    console.error("[discovery getWorkspace]", detail, err?.stack || "");
+    return res.status(500).json({
+      error: detail || "Failed to load discovery workspace",
+    });
   }
 }
 
@@ -154,7 +157,7 @@ async function brainstorm(req, res) {
   } catch (err) {
     console.error(err);
     return res.status(500).json({
-      error: err.message || "Brainstorm generation failed",
+      error: err.message || "Organize with AI failed",
     });
   }
 }
@@ -162,30 +165,37 @@ async function brainstorm(req, res) {
 async function prioritize(req, res) {
   try {
     const row = await ensureWorkspace(req.params.projectId, req.user.id);
+    const fromRow = row.brainstorm?.structuredFeatures;
+    const fromBody = Array.isArray(req.body.structuredFeatures)
+      ? req.body.structuredFeatures
+      : null;
     const structured =
-      row.brainstorm?.structuredFeatures ||
-      (Array.isArray(req.body.structuredFeatures)
-        ? req.body.structuredFeatures
-        : null);
+      Array.isArray(fromRow) && fromRow.length > 0
+        ? fromRow
+        : Array.isArray(fromBody) && fromBody.length > 0
+          ? fromBody
+          : null;
     if (!Array.isArray(structured) || structured.length === 0) {
       return res.status(400).json({
-        error: "Run brainstorm first or pass structuredFeatures in the body",
+        error:
+          "No structured features found. On the Brainstorm tab, run Organize with AI first, then try Prioritize again. If you already did, reload the page and retry.",
       });
     }
     const founderNotes =
-      typeof req.body.founderNotes === "string" ? req.body.founderNotes : "";
+      typeof req.body.founderNotes === "string" ? req.body.founderNotes.trim() : "";
     const userMsg = buildPrioritizeUser(req.project, structured, founderNotes);
     const { text, model } = await chat(
       [
         { role: "system", content: PRIORITIZE_SYSTEM },
         { role: "user", content: userMsg },
       ],
-      { temperature: 0.35, maxTokens: 16000, jsonObject: true }
+      { temperature: 0.35, maxTokens: 12000, jsonObject: true }
     );
     const parsed = parseModelFormJson(text);
     const prioritizationPayload = {
       features: Array.isArray(parsed.features) ? parsed.features : [],
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
+      founderNotes: founderNotes.slice(0, 32000),
       selectedForValidationIds: Array.isArray(req.body.selectedForValidationIds)
         ? req.body.selectedForValidationIds
         : Array.isArray(row.prioritization?.selectedForValidationIds)

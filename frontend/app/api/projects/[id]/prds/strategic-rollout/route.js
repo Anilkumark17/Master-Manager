@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getBackendBaseUrl } from "@/lib/backend-url";
+import { fetchToBackend } from "@/lib/backend-fetch";
 import { getAuthHeaders } from "@/lib/server-api";
 
-export const maxDuration = 300;
+export const maxDuration = 900;
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -14,7 +15,7 @@ export async function POST(request, { params }) {
   }
   const backend = getBackendBaseUrl();
   try {
-    const res = await fetch(`${backend}/projects/${id}/prds/strategic-rollout`, {
+    const res = await fetchToBackend(`${backend}/projects/${id}/prds/strategic-rollout`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

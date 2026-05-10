@@ -6,7 +6,7 @@ export async function GET(_request, { params }) {
   const { id } = await params;
   const backend = getBackendBaseUrl();
   try {
-    const res = await fetch(`${backend}/projects/${id}/discovery/workspace`, {
+    const res = await fetch(`${backend}/projects/${id}/dev/workspace`, {
       headers: { ...(await getAuthHeaders()) },
       cache: "no-store",
     });
@@ -37,7 +37,7 @@ export async function PATCH(request, { params }) {
   }
   const backend = getBackendBaseUrl();
   try {
-    const res = await fetch(`${backend}/projects/${id}/discovery/workspace`, {
+    const res = await fetch(`${backend}/projects/${id}/dev/workspace`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",

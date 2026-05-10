@@ -69,10 +69,8 @@ export function ValidationResultsTab({
 
   React.useEffect(() => {
     const fi = workspace?.validationResults?.founderInput;
-    if (typeof fi === "string") {
-      setExtraNotes(fi);
-    }
-  }, [workspace?.validationResults?.lastGeneratedAt]);
+    setExtraNotes(typeof fi === "string" ? fi : "");
+  }, [workspace?.validationResults?.founderInput]);
 
   function setNote(id, value) {
     setNotesByFeature((prev) => ({ ...prev, [id]: value }));

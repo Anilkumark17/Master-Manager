@@ -26,7 +26,10 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  applyDiscoveryToForm,
+  buildJourneyStageBrief,
+} from "@/lib/prd-autofill-from-discovery";
 import {
   buildPlainDocumentFromPrdForm,
   safeFilename,
@@ -57,6 +60,7 @@ export function PrdWorkspace({ projectId, project }) {
   const [exportHint, setExportHint] = React.useState("");
   const [strategicLoading, setStrategicLoading] = React.useState(false);
   const [useDiscoveryContext, setUseDiscoveryContext] = React.useState(true);
+  const hydrateGen = React.useRef(0);
 
   const refreshList = React.useCallback(async () => {
     setLoadingList(true);
@@ -75,8 +79,46 @@ export function PrdWorkspace({ projectId, project }) {
     refreshList();
   }, [refreshList]);
 
-  function applyAutofill() {
-    setForm(mergeForm(emptyPrdForm(), autofillFromProject(project)));
+  React.useEffect(() => {
+    const gen = ++hydrateGen.current;
+    (async () => {
+      let ws = null;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/discovery/workspace`);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.workspace) {
+          ws = data.workspace;
+        }
+      } catch {
+        /* offline or no workspace */
+      }
+      if (gen !== hydrateGen.current) {
+        return;
+      }
+      const start = mergeForm(emptyPrdForm(), autofillFromProject(project));
+      setForm(applyDiscoveryToForm(start, ws, project));
+      setNextStageBrief((prev) =>
+        prev.trim() ? prev : buildJourneyStageBrief(ws, project)
+      );
+    })();
+  }, [projectId, project?.id]);
+
+  async function applyAutofill() {
+    let ws = null;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/discovery/workspace`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.workspace) {
+        ws = data.workspace;
+      }
+    } catch {
+      /* ignore */
+    }
+    const start = mergeForm(emptyPrdForm(), autofillFromProject(project));
+    setForm(applyDiscoveryToForm(start, ws, project));
+    setNextStageBrief((prev) =>
+      prev.trim() ? prev : buildJourneyStageBrief(ws, project)
+    );
   }
 
   function updateField(path, value) {
@@ -139,7 +181,7 @@ export function PrdWorkspace({ projectId, project }) {
             skipPaths: ["strategicRollout.analysis"],
           }),
           stageBrief: brief,
-          useDiscoveryWorkspace: useDiscoveryContext,
+          useDiscoveryWorkspace: true,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -241,45 +283,28 @@ export function PrdWorkspace({ projectId, project }) {
 
   return (
     <div className="space-y-8">
-      <AiCallout title="FastRouter">
-        Uses <code className="rounded bg-muted px-1">FASTROUTER_API_KEY</code>{" "}
-        (or <code className="rounded bg-muted px-1">API_key</code>) and{" "}
-        <code className="rounded bg-muted px-1">FASTROUTER_MODEL</code> on the
-        server. Describe the next stage, then AI prefills fields as plain text
-        (no markdown in inputs; tables as tab-separated rows for Excel-style
-        paste). Save stores the form and a plain-text document in{" "}
+      <AiCallout title="FastRouter + product journey">
+        This tab loads your{" "}
+        <span className="font-medium text-foreground">Product journey</span>{" "}
+        workspace and{" "}
+        <span className="font-medium text-foreground">PRD planning</span> into
+        the template (tagged sections) and prewrites the brief when it is
+        empty. AI prefill always sends that workspace to the server together
+        with your form snapshot. Uses{" "}
+        <code className="rounded bg-muted px-1">FASTROUTER_API_KEY</code> /{" "}
+        <code className="rounded bg-muted px-1">FASTROUTER_MODEL</code>. Plain
+        text in fields; tables as TSV. Save writes{" "}
         <code className="rounded bg-muted px-1">content</code>.
       </AiCallout>
 
       <WorkspacePanel className="space-y-3">
-        <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-          <Checkbox
-            id="use-discovery"
-            checked={useDiscoveryContext}
-            onCheckedChange={(v) => setUseDiscoveryContext(v === true)}
-          />
-          <div className="min-w-0 flex-1">
-            <Label
-              htmlFor="use-discovery"
-              className="cursor-pointer text-sm font-medium leading-snug"
-            >
-              Use product journey + PRD planning context
-            </Label>
-            <p className="mt-1 text-xs text-muted-foreground">
-              When enabled, the server sends your saved discovery workspace and
-              PRD planning packet to the model (if any exist). Turn off to rely
-              only on the project record and brief.
-            </p>
-          </div>
-        </div>
         <div>
           <Label htmlFor="next-stage-brief" className="text-sm font-medium">
             Brief for the next stage
           </Label>
           <p className="mt-1 text-xs text-muted-foreground">
-            Summarize what you are moving toward next (goals, scope, timeline,
-            risks, or decisions). AI uses this together with the project record
-            and any fields you already filled to prefill the template.
+            Auto-filled from journey + planning when empty. Edit freely — AI
+            uses this together with the merged form fields and project record.
           </p>
         </div>
         <Textarea
@@ -300,7 +325,7 @@ export function PrdWorkspace({ projectId, project }) {
           className="gap-2"
         >
           <Wand2 className="size-4" aria-hidden />
-          Autofill from project
+          Autofill from project + journey
         </Button>
         <Button
           type="button"

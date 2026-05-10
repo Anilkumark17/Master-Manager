@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getBackendBaseUrl } from "@/lib/backend-url";
+import { fetchToBackend } from "@/lib/backend-fetch";
 import { getAuthHeaders } from "@/lib/server-api";
 
 /** Long AI form-fill (FastRouter) can exceed default route limits on some hosts. */
-export const maxDuration = 300;
+export const maxDuration = 900;
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -15,7 +16,7 @@ export async function POST(request, { params }) {
   }
   const backend = getBackendBaseUrl();
   try {
-    const res = await fetch(`${backend}/projects/${id}/prds/generate`, {
+    const res = await fetchToBackend(`${backend}/projects/${id}/prds/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

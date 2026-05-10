@@ -84,6 +84,30 @@ const productDiscoveryWorkspaces = pgTable(
   }
 );
 
+/**
+ * Dev tab: architecture / tech-requirements intake + generated markdown doc (one row per project).
+ */
+const devArchitectureWorkspaces = pgTable("dev_architecture_workspaces", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .unique()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  intake: jsonb("intake").notNull().$defaultFn(() => ({})),
+  clarificationNotes: text("clarification_notes").notNull().default(""),
+  generatedDocument: text("generated_document").notNull().default(""),
+  modelUsed: text("model_used"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 /** React Flow–compatible maps generated from the latest PRD (IA / journeys / handoff). */
 const designerDeliverables = pgTable("designer_deliverables", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -110,5 +134,6 @@ module.exports = {
   projects,
   prdDocuments,
   productDiscoveryWorkspaces,
+  devArchitectureWorkspaces,
   designerDeliverables,
 };

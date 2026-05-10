@@ -4,6 +4,7 @@ const { PROJECT_TYPES } = require("./constants");
 const { requireAuth } = require("../auth/middleware");
 const { designerRouter } = require("../designer");
 const { discoveryRouter } = require("../discovery");
+const { devRouter } = require("../dev");
 const { prdRouter } = require("../prd");
 const { requireProjectAccess } = require("../prd/middleware");
 
@@ -35,6 +36,13 @@ router.use(
   requireAuth,
   requireProjectAccess,
   designerRouter
+);
+
+router.use(
+  "/:projectId/dev",
+  requireAuth,
+  requireProjectAccess,
+  devRouter
 );
 
 router.get("/:id", requireAuth, controller.getOne);
